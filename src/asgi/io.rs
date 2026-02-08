@@ -558,6 +558,11 @@ impl ASGIWebsocketProtocol {
                     }
                 }
             }
+
+            if closed.load(atomic::Ordering::Acquire) {
+                return FutureResultToPy::ASGIWSMessage(Message::Close(None));
+            }
+
             FutureResultToPy::Err(error_flow!("Transport not initialized or closed"))
         })
     }
