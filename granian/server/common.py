@@ -361,7 +361,7 @@ class AbstractServer(Generic[WT]):
                     time.sleep(0.001)
                 if old_wrk.is_alive():
                     logger.warning(
-                        f'Killing old worker-{idx + 1} after it refused to gracefully stop'
+                        f'Killing old worker-{idx + 1} with {old_wrk._idl}: {old_wrk._id()} after it refused to gracefully stop'
                     )
                     old_wrk.kill()
                     old_wrk.join()
