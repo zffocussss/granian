@@ -33,7 +33,7 @@ LOGGING_CONFIG = {
     'formatters': {
         'generic': {
             '()': 'logging.Formatter',
-            'fmt': '[%(levelname)s] %(message)s',
+            'fmt': '%(asctime)s %(process)d [%(levelname)s] %(message)s',
             'datefmt': '[%Y-%m-%d %H:%M:%S %z]',
         },
         'access': {

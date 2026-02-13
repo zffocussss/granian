@@ -23,7 +23,6 @@ from ..http import HTTP1Settings, HTTP2Settings
 from ..log import DEFAULT_ACCESSLOG_FMT, LogLevels, configure_logging, logger
 from ..net import SocketSpec, UnixSocketSpec
 
-
 WT = TypeVar('WT')
 
 WORKERS_METHODS = {
@@ -152,7 +151,9 @@ class AbstractServer(Generic[WT]):
         self.interface = interface
         self.workers = max(1, workers)
         self.runtime_threads = max(1, runtime_threads)
-        self.runtime_blocking_threads = 512 if runtime_blocking_threads is None else max(1, runtime_blocking_threads)
+        self.runtime_blocking_threads = (
+            512 if runtime_blocking_threads is None else max(1, runtime_blocking_threads)
+        )
         self.runtime_mode = runtime_mode
         self.loop = loop
         self.task_impl = task_impl
@@ -215,7 +216,13 @@ class AbstractServer(Generic[WT]):
                 (str(static_path_expires) if static_path_expires else None),
             )
         self.build_ssl_context(
-            ssl_cert, ssl_key, ssl_key_password, ssl_protocol_min, ssl_ca, ssl_crl or [], ssl_client_verify
+            ssl_cert,
+            ssl_key,
+            ssl_key_password,
+            ssl_protocol_min,
+            ssl_ca,
+            ssl_crl or [],
+            ssl_client_verify,
         )
         self._ssp = None
         self._shd = None
@@ -345,7 +352,7 @@ class AbstractServer(Generic[WT]):
             wrk.start()
             self.wrks.insert(idx, wrk)
             time.sleep(delay)
-            logger.info(f'Stopping old worker-{idx + 1}')
+            logger.info(f'Stopping old worker-{idx + 1} with {old_wrk._idl}: {old_wrk._id()}')
             old_wrk.terminate()
             old_wrk.join(self.workers_kill_timeout)
             if self.workers_kill_timeout:
@@ -353,7 +360,9 @@ class AbstractServer(Generic[WT]):
                 if old_wrk.is_alive():
                     time.sleep(0.001)
                 if old_wrk.is_alive():
-                    logger.warning(f'Killing old worker-{idx + 1} after it refused to gracefully stop')
+                    logger.warning(
+                        f'Killing old worker-{idx + 1} after it refused to gracefully stop'
+                    )
                     old_wrk.kill()
                     old_wrk.join()
         self._metrics.incr_spawn(len(workers))
@@ -501,7 +510,9 @@ class AbstractServer(Generic[WT]):
 
         self._env_loader(self.env_files)
         self._call_hooks(self.hooks_reload)
-        return self._respawn_workers(workers, spawn_target, target_loader, delay=self.respawn_interval)
+        return self._respawn_workers(
+            workers, spawn_target, target_loader, delay=self.respawn_interval
+        )
 
     def _handle_rss_signal(self, spawn_target, target_loader):
         raise NotImplementedError
@@ -517,7 +528,10 @@ class AbstractServer(Generic[WT]):
                     break
 
                 cycle = time.monotonic()
-                if any(cycle - self.respawned_wrks.get(idx, 0) <= 5.5 for idx in self.interrupt_children):
+                if any(
+                    cycle - self.respawned_wrks.get(idx, 0) <= 5.5
+                    for idx in self.interrupt_children
+                ):
                     logger.error('Worker crash loop detected, exiting')
                     break
 
@@ -541,9 +555,14 @@ class AbstractServer(Generic[WT]):
                     etas = [self.workers_lifetime]
                     for worker in list(self.wrks):
                         if (now - worker.birth) >= ttl:
-                            logger.info(f'worker-{worker.idx + 1} lifetime expired, gracefully respawning..')
+                            logger.info(
+                                f'worker-{worker.idx + 1} with {worker._idl}: {worker._id()} lifetime expired, gracefully respawning..'
+                            )
                             self._respawn_workers(
-                                [worker.idx], spawn_target, target_loader, delay=self.respawn_interval
+                                [worker.idx],
+                                spawn_target,
+                                target_loader,
+                                delay=self.respawn_interval,
                             )
                             self._metrics.incr_respawn_ttl(1)
                         else:
@@ -576,7 +595,10 @@ class AbstractServer(Generic[WT]):
             *reload_filter_cls.ignore_entity_patterns,
             *self.reload_ignore_patterns,
         )
-        reload_filter_cls.ignore_paths = (*reload_filter_cls.ignore_paths, *self.reload_ignore_paths)
+        reload_filter_cls.ignore_paths = (
+            *reload_filter_cls.ignore_paths,
+            *self.reload_ignore_paths,
+        )
         # Construct new filter
         reload_filter = reload_filter_cls()
 
@@ -624,7 +646,9 @@ class AbstractServer(Generic[WT]):
             if wrap_loader:
                 target_loader = partial(target_loader, self.target)
         else:
-            target_loader = partial(load_target, self.target, wd=self.working_dir, factory=self.factory)
+            target_loader = partial(
+                load_target, self.target, wd=self.working_dir, factory=self.factory
+            )
 
         if not spawn_target:
             spawn_target = default_spawners[self.interface]
@@ -652,7 +676,9 @@ class AbstractServer(Generic[WT]):
                 logger.info('Websockets are not supported on HTTP/2 only, ignoring')
 
         if setproctitle is not None:
-            self.process_name = self.process_name or (f'granian {self.interface} {self._bind_addr_fmt} {self.target}')
+            self.process_name = self.process_name or (
+                f'granian {self.interface} {self._bind_addr_fmt} {self.target}'
+            )
             setproctitle.setproctitle(self.process_name)
         elif self.process_name is not None:
             logger.error('Setting process name requires the granian[pname] extra')
@@ -668,17 +694,23 @@ class AbstractServer(Generic[WT]):
                 raise ConfigurationError('workers_lifetime')
             if self.reload_on_changes:
                 self.workers_lifetime = None
-                logger.info('Workers lifetime is not available in combination with changes reloader, ignoring')
+                logger.info(
+                    'Workers lifetime is not available in combination with changes reloader, ignoring'
+                )
 
         if self.workers_rss is not None:
             if self.reload_on_changes:
                 self.workers_rss = None
-                logger.info('The resource monitor is not available in combination with changes reloader, ignoring')
+                logger.info(
+                    'The resource monitor is not available in combination with changes reloader, ignoring'
+                )
 
         if self.metrics_enabled:
             if self.reload_on_changes:
                 self.metrics_enabled = False
-                logger.info('Metrics are not available in combination with changes reloader, ignoring')
+                logger.info(
+                    'Metrics are not available in combination with changes reloader, ignoring'
+                )
 
         if self.blocking_threads_idle_timeout < 5 or self.blocking_threads_idle_timeout > 600:
             logger.error('Blocking threads idle timeout must be between 5 and 600 seconds')
@@ -712,7 +744,9 @@ class AbstractServer(Generic[WT]):
         if self.task_impl == TaskImpl.rust:
             if _PYV >= _PY_312:
                 self.task_impl = TaskImpl.asyncio
-                logger.warning('Rust task implementation is not available on Python >= 3.12, falling back to asyncio')
+                logger.warning(
+                    'Rust task implementation is not available on Python >= 3.12, falling back to asyncio'
+                )
             else:
                 logger.warning('Rust task implementation is experimental!')
 
